@@ -96,3 +96,6 @@ wandb/
 
 outputs/
 multirun/
+
+# exclude models
+/models
