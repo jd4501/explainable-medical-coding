@@ -499,6 +499,52 @@ class AUC(Metric):
         pass
 
 
+from torchmetrics.classification import BinaryAUROC, MulticlassAUROC, MultilabelAUROC
+
+class AUC2(Metric):
+    batch_update = False
+    metric_type = "classification"
+
+    def __init__(
+        self,
+        number_of_classes: int,
+        average: str = "micro",
+        name: str = "auc",
+        filter_codes: bool = True,
+    ):
+        """Optimized AUC using TorchMetrics, eliminating redundant loops."""
+        if average:
+            name = f"{name}_{average}"
+        if not filter_codes:
+            name = f"{name}_mullenbach"
+        super().__init__(name=name, number_of_classes=number_of_classes)
+        self._average = average
+        self.filter_codes = filter_codes
+        self.number_of_classes = number_of_classes
+
+    def compute(
+        self,
+        y_probs: torch.Tensor,
+        targets: torch.Tensor,
+    ) -> torch.Tensor:
+        if y_probs is None or targets is None:
+            raise ValueError("y_probs and targets must be provided to calculate AUC.")
+
+        # Ensure correct shape: (N, C) for y_probs and targets
+        if targets.dim() == 2 and targets.shape[1] > 1:  # (N, C) shape
+            if targets.sum(dim=1).max() > 1:  # More than one label per row → multilabel
+                metric = MultilabelAUROC(num_labels=self.number_of_classes, average=self._average, thresholds=None)
+            else:
+                print("Targets not in expected format")
+        else:
+            raise ValueError("Unexpected targets shape. Should be (N, C) or (N,)")
+
+        return metric(y_probs, targets)
+
+    def reset(self):
+        """TorchMetrics handles state, so no need to reset manually."""
+        pass
+
 class F1Score(Metric):
     metric_type = "classification"
 
